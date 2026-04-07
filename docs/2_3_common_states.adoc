@@ -17,6 +17,13 @@ The state machine is given here as UML 2.0 state machine.
 If a transition is labeled with one or more function names (for example, <<fmi3EnterInitializationMode>>, <<fmi3EnterEventMode>>), the transition is taken if the function call returns successfully (not `NULL` for <<fmi3Instantiate>> or <<fmi3OK>> and <<fmi3Warning>> for all other functions).
 This way, importer and FMU can determine in which state the FMU is.
 
+[NOTE]
+====
+The state machine diagram shown above does not represent all states within the superstates, nor does it depict all transitions between states.
+In particular, the <<Initialized>> super state encompasses different substates and transitions that vary depending on the specific interface variant (Model Exchange, Co-Simulation, or Scheduled Execution).
+Additional transitions from and to the <<Initialized>> state are defined in the respective chapters for each interface type.
+====
+
 ==== Super State: FMU State Settable [[FMUStateSettable,*FMU State Settable*]]
 
 The state <<FMUStateSettable>> is entered when any of the following functions is called: <<fmi3InstantiateModelExchange>>, <<fmi3InstantiateCoSimulation>> and <<fmi3InstantiateScheduledExecution>>.
@@ -105,7 +112,8 @@ For FMUs that have clocks, `eventModeUsed = fmi3True` is required.
 * [[earlyReturnAllowed,`earlyReturnAllowed`]]If `earlyReturnAllowed = fmi3True` the importer can handle <<early-return,early return>>.
 Only in this case, <<fmi3DoStep>> may return with <<earlyReturn,`earlyReturn = fmi3True`>>.
 
-* `instanceEnvironment` is a pointer that must be passed to <<fmi3IntermediateUpdateCallback>>, <<fmi3ClockUpdateCallback>>, and <<logMessage,`fmi3LogMessageCallback`>> to allow the importer an efficient way to identify the calling FMU.
+* [[instanceEnvironment,`instanceEnvironment`]]`instanceEnvironment` is a pointer that must be passed to <<fmi3IntermediateUpdateCallback>>, <<fmi3ClockUpdateCallback>>, and <<logMessage,`fmi3LogMessageCallback`>> to allow the importer to efficiently identify the calling FMU.
+This pointer may be `NULL`.
 
 * [[requiredIntermediateVariables,`requiredIntermediateVariables`]] `requiredIntermediateVariables` is an array of the value references of all <<input>> variables that the simulation algorithm intends to set and all <<output>> variables it intends to get during intermediate updates.
 This set may be empty (<<nRequiredIntermediateVariables>> = 0) when the simulation algorithm does not intend to use intermediate update.
@@ -168,7 +176,7 @@ For example, if <<logMessage,`logMessage = NULL`>>, calls to <<fmi3SetDebugLoggi
 If <<intermediateUpdate,`intermediateUpdate = NULL`>> and arguments <<requiredIntermediateVariables,`requiredIntermediateVariables != NULL`>> and/or <<nRequiredIntermediateVariables,`nRequiredIntermediateVariables != 0`>> the behavior of the FMU is undefined.
 ====
 +
-Additionally, a pointer to the environment is provided (`instanceEnvironment`) that needs to be passed to the callback functions <<logMessage>>, <<fmi3IntermediateUpdateCallback,`intermediateUpdate`>>, <<fmi3ClockUpdateCallback,`clockUpdate`>>, in order that those functions can utilize data from the environment, such as mapping a <<valueReference>> to a string, or assigning memory to a certain FMU instance.
+Additionally, a pointer to the environment is provided (<<instanceEnvironment>>) that needs to be passed to the callback functions <<logMessage>>, <<fmi3IntermediateUpdateCallback,`intermediateUpdate`>>, <<fmi3ClockUpdateCallback,`clockUpdate`>>, in order that those functions can utilize data from the environment, such as mapping a <<valueReference>> to a string, or assigning memory to a certain FMU instance.
 
 
 Allowed Function Calls::
@@ -523,23 +531,22 @@ Changes state to <<Terminated>>.
 ==== State: Event Mode [[EventMode,*Event Mode*]]
 
 In <<EventMode>> all continuous-time, discrete-time equations and active model partitions are evaluated.
-<<algebraic-loops,Algebraic loops>> active during <<EventMode>> are solved by <<eventIteration>>.
+<<algebraic-loops,Algebraic loops>> active during <<EventMode>> are solved by <<event-iteration>>.
 
 <<EventMode>> is not available in Scheduled Execution.
 While the reasons for entering <<EventMode>> are different for Model Exchange and Co-Simulation (see <<fmi3EnterEventMode>> (ME) and <<fmi3EnterEventModeCS>> (CS)), the event handling itself works the same.
 
 There are multiple kinds of events that require a transition to <<EventMode>>:
 
-* <<input-event,Input events>> indicate a non-continuous change of at least one input, in both Model Exchange and Co-Simulation.
+* [[input-event,input event]] Input events indicate a non-continuous change of at least one input, in both Model Exchange and Co-Simulation.
   Additionally, in Co-Simulation, the exact event time can be communicated to the FMU by the return argument <<earlyReturnTime>> of <<fmi3IntermediateUpdateCallback>>.
-* <<time-event,Time events>> are announced to the importer in advance by the FMU through
-  - the argument <<nextEventTime>> of <<fmi3UpdateDiscreteStates>>, or
-  - the arguments of <<fmi3GetShift>> and <<fmi3GetInterval>>.
-* <<state-event,State events>> are signaled to the importer by <<eventIndicators>> in Model Exchange (see <<localizationStateEvents>>).
+* [[time-event,time event]] Time events are announced to the importer in advance by the FMU through
+** the argument <<nextEventTime>> of <<fmi3UpdateDiscreteStates>>, or
+** the arguments of <<fmi3GetShift>> and <<fmi3GetInterval>>.
+* [[state-event,state event]] State events are signaled to the importer by <<eventIndicators>> in Model Exchange (see <<localizationStateEvents>>).
   In Co-Simulation, the FMU returns from <<fmi3DoStep>> with <<eventHandlingNeeded,`eventHandlingNeeded = fmi3True`>>.
   The exact event localization is hidden from the importer.
-* <<step-event,Step events>> are initiated by the FMU at the end of an integrator step (see argument <<enterEventMode>> of <<fmi3CompletedIntegratorStep>>) in Model Exchange.
-
+* [[step-event,step event]] Step events are initiated by the FMU at the end of an integrator step (see argument <<enterEventMode>> of <<fmi3CompletedIntegratorStep>>) in Model Exchange.
 
 [#table-math-event-mode]
 [cols="5,2",options="header"]
@@ -629,12 +636,18 @@ If the final (or some intermediate) value of latexmath:[v] no longer activates t
 The importer can set a Clock to `fmi3ClockInactive` only if the Clock has the attribute <<canBeDeactivated,`canBeDeactivated = true`>>.
 Any Clock active during <<fmi3UpdateDiscreteStates>> must be deactivated by the FMU itself. +
 <<periodic-clock,Periodic Clocks>> must not be active for more than one call of <<fmi3UpdateDiscreteStates>> per <<EventMode>>.
-This restriction does not apply to <<triggered,triggered Clocks>>, nor does it apply to <<aperiodic-clock,aperiodic Clocks>>, for which latexmath:[T_{\mathit{interval}} = 0] can be returned by <<fmi3GetInterval>>.
 
-NOTE: The event iteration for handling discontinuities of the continuous part of the FMU should precede handling of time-based Clocks.
-No further constraints on activations of <<time-based-clock,time-based Clocks>> are defined, e.g. activating at the first instant of super-dense time.
-If the semantics of some Clocks require any specific treatment, e.g. activation at the same super-dense time instant, only the importer will know and must therefore enforce proper activation of the respective Clocks.
---
+This restriction does not apply to <<triggered,triggered Clocks>>, nor does it apply to <<aperiodic-clock,aperiodic Clocks>>, for which latexmath:[T_{\mathit{interval}} = 0] can be returned by <<fmi3GetInterval>>. +
+[NOTE]
+====
+The event mode may consist of several super-dense time instants.
+Each super-dense time instant represents a distinct event occurring at the same simulation time.
+If any event originating from the continuous time mode (for a ME FMU) resp. step mode (for a CS FMU) is present, its event iteration must be performed during the first super-dense time instant.
+Each super-dense time instant must conclude with a call to <<fmi3UpdateDiscreteStates>>.
+Super-dense time instants that handle <<time-based-clock, time-based Clocks>> are initiated by setting the corresponding Clocks using <<fmi3SetClock>>.
+No further constraints are imposed on the activation of <<time-based-clock, time-based Clocks>> (for example, activation during the first instant of a super-dense time, the order of handling multiple clocks, or handling multiple Clocks within the same super-dense time instant).
+If the semantics of certain Clocks require specific handling—such as simultaneous activation within the same super-dense time instant—this must be ensured by the importer.
+====
 
 Function <<fmi3GetClock>>::
 is used to inquire the status of <<Clock,Clocks>>.
@@ -719,7 +732,7 @@ If the time offset proves to be too large, the FMU could issue a log message and
 The user can improve time settings of the importer to alleviate the issues.
 ====
 +
-If another (e.g. <<state event>>) event happens before that <<nextEventTime>>, the previous definition of <<nextEventTime>> becomes obsolete.
+If another (e.g. <<state-event>>) event happens before that <<nextEventTime>>, the previous definition of <<nextEventTime>> becomes obsolete.
 
 Function <<fmi3EnterConfigurationMode>>::
 <<fmi3EnterConfigurationMode>> changes state to <<ReconfigurationMode>> in Model Exchange.

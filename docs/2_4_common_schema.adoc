@@ -263,9 +263,9 @@ If more space is required, the folder <<license-information,`licenses`>> should 
 
 |`generationDateAndTime`
 |Optional date and time when the XML file was generated.
-The format is a subset of `dateTime` and should be: `YYYY-MM-DDThh:mm:ssZ` (with one `T` between date and time; `Z` characterizes the Zulu time zone, in other words, Greenwich meantime)
+The value must be a valid ISO 8601 date-time string (type `xs:dateTime`).
 
-NOTE: for example `2009-12-08T14:33:22Z`, according to ISO 8601.
+NOTE: For example `2009-12-08T14:33:22Z`, `2025-06-12T19:14:14.839539+02:00`, etc.
 
 |[[variableNamingConvention,`variableNamingConvention`]]`variableNamingConvention`
 |Defines whether the variable names in <<ModelVariables>> and in `<TypeDefinitions>` follow the `flat` or `structured` convention as defined in <<namingSection>>.
@@ -1483,17 +1483,24 @@ If present, then the variable with this attribute is the derivative of the varia
 
 NOTE: For example, if `derivative = 3` for variable 8, then variable 8 is the derivative of variable 3 with respect to the <<independent>> variable (usually time).
 
-This information may be used to signal that an <<input>> or an <<output>> is the derivative of another <<input>> or <<output>>, respectively.
-Furthermore, this attribute defines the continuous <<state,states>> of the FMU.
-The derivatives of continuous <<state,states>> of an FMU are listed as elements <<ContinuousStateDerivative>> in <<ModelStructure>>.
-All variables listed in these elements must have attribute `derivative`.
+Multiple variables may reference the same variable via `derivative`.
+
+A variable with attribute `derivative` that is not listed as a <<ContinuousStateDerivative>> is not used for integration.
+
+[NOTE]
+====
+Variables with attribute `derivative` that are not listed as <<ContinuousStateDerivative>> include, for example:
+
+* An <<input>> or <<output>> that is the derivative of another <<input>> or <<output>>, respectively, where the `derivative` attribute signals this relationship to the importer.
+* When mapping a second-order system to first-order <<state,states>>, a velocity <<state>> that has `derivative` referencing the position <<state>> to preserve the higher-order structure.
+====
 
 |`reinit`
 |[[reinit,`reinit`]]
 Only used in Model Exchange, ignored for the other interface types.
 May only be present for a <<state,continuous-time state>>. +
-If `true`, the <<state>> may be <<reinitialization,reinitialized>> by the FMU in <<EventMode>>. +
-If `false`, the <<state>> will not be <<reinitialization,reinitialized>>.
+If `true`, the <<state>> may be reinitialized by the FMU in <<EventMode>>. +
+If `false`, the <<state>> will not be reinitialized.
 
 |====
 
@@ -1705,6 +1712,7 @@ latexmath:[{(\mathbf{y}_c, \mathbf{y}_d) := \mathbf{f}_{\mathit{output}}(\mathbf
 |`ContinuousStateDerivative`
 |[[ContinuousStateDerivative,`<ContinuousStateDerivative>`]]
 Ordered list of value references of all derivatives of continuous <<state,states>>.
+The referred variables must have the `derivative` attribute.
 The order defined by this list defines the order of the elements for <<fmi3GetContinuousStates>>, <<fmi3SetContinuousStates>>, and <<fmi3GetContinuousStateDerivatives>>.
 
 NOTE: Note that only <<continuous>> floating point variables are listed here.
@@ -1725,7 +1733,7 @@ latexmath:[{\dot{\mathbf{x}}_c := \mathbf{f}_{\mathit{der}}(\mathbf{x}_c, \mathb
 A <<ClockedState>> is part of the discrete state of a model partition and represented by a clocked variable.
 To which Clock or Clocks it belongs is described by the attribute <<clocks>> of that variable.
 Each <<ClockedState>> must have the attribute <<previous>> to represent the previous value of this <<ClockedState>>.
-All clocked states must have <<variability,`variability = discrete`>>, must have the attribute <<clocks>>, and must not be of type <<fmi3Clock>>.
+All clocked states must have <<variability,`variability = discrete`>>, must have the attribute <<clocks>>, and must not be of type `fmi3Clock`.
 
 |`InitialUnknown`
 a|

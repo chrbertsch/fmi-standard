@@ -15,7 +15,7 @@ The real part latexmath:[t_R] of this tuple is the <<independent>> variable of t
 During continuous-time integration the integer part of time latexmath:[t_I = 0].
 latexmath:[t_I] is a counter to enumerate (and therefore distinguish) the events at the same continuous-time instant latexmath:[t_R].
 This time definition is also called "super-dense time" in literature, see, for example, <<LZ07>>.
-An ordering is defined on latexmath:[\mathbb{\textsf{T}}] that leads to the notation in <<table-model-exchange-math-notation>>.
+An ordering is defined on latexmath:[\mathbb{T}] that leads to the notation in <<table-model-exchange-math-notation>>.
 
 .Conventions and notation used for time.
 [#table-model-exchange-math-notation]
@@ -75,7 +75,7 @@ If no event iteration occurs, the time instant when the event occurs is defined 
 The hybrid differential equations exposed by FMI for Model Exchange or wrapped by FMI for Co-Simulation are described as piecewise continuous-time systems.
 Discontinuities can occur at time instants latexmath:[t_0, t_1, \ldots, t_n] where latexmath:[t_i < t_{i+1}].
 These time instants are called `events`.
-Events can be known beforehand (<<time event,time events>>), or are defined implicitly (<<state event,state event>> and <<step event,step events>>), see below.
+Events can be known beforehand (<<time-event,time events>>), or are defined implicitly (<<state-event,state events>> and <<step-event,step events>>), see below.
 Between events, variables are either <<continuous>> or do not change their value.
 A variable is called discrete-time, if it changes its value only at events.
 Otherwise the variable is called continuous-time.
@@ -184,7 +184,7 @@ A subset of local variables is selected via a <<table-subscripts,subscript>>.
 |<<Clock>> variables.
 
 |latexmath:[\mathbf{z}]
-|A vector of floating point continuous-time variables representing the <<state-event,event indicators>> used to locate <<state event,state events>>.
+|A vector of floating point continuous-time variables representing the <<state-event,event indicators>> used to locate <<state-event,state events>>.
 
 |[[state,state]]latexmath:[\mathbf{x}_c] +
 latexmath:[\mathbf{\dot{x}}_c]
